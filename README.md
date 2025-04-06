@@ -1,79 +1,50 @@
-# BLE Mesh MQTT Bridge Project
+# CSC2106 Group 7: BLE Mesh MQTT Smart Home Air Conditioner Retrofit
 
-This repository contains the code for our IoT project using BLE Mesh and MQTT for sensor data collection and control. The project creates a bridge between BLE Mesh devices and MQTT brokers, allowing for remote monitoring and control.
+Code for an IoT project to control non-smart air conditioners using BLE Mesh, MQTT, and ESP32 (M5Stamp-C3) boards integrated with Home Assistant. Aims to provide unified control and automation for energy efficiency.
 
-## System Architecture
+## Project Structure
 
-The system consists of four main components:
+Contains ESP-IDF code for the following components:
 
-### [blemesh-mqtt-onoff-client](./blemesh-mqtt-onoff-client/)
-BLE Mesh client that connects to the onoff server, allowing control of LED states via MQTT. This client acts as a bridge between MQTT and the BLE Mesh network.
-
-### [blemesh-mqtt-onoff-server](./blemesh-mqtt-onoff-server/)
-BLE Mesh server that controls LED states based on commands received from the client through the mesh network. Can be provisioned to respond to on/off commands.
-
-### [blemesh-mqtt-sensor-client](./blemesh-mqtt-sensor-client/)
-BLE Mesh client that connects to the sensor server, reads sensor data from the mesh network, and publishes it to MQTT topics for remote monitoring.
-
-### [blemesh-mqtt-sensor-server](./blemesh-mqtt-sensor-server/)
-BLE Mesh server with temperature and humidity sensors. Collects sensor data and makes it available on the mesh network for clients to read.
+* `blemesh-mqtt-onoff-client`: BLE Mesh client/gateway for AC control commands via MQTT.
+* `blemesh-mqtt-onoff-server`: BLE Mesh server node with IR transmitter to control AC.
+* `blemesh-mqtt-sensor-client`: BLE Mesh client/gateway for sensor data via MQTT.
+* `blemesh-mqtt-sensor-server`: BLE Mesh server node with DHT22 sensor.
 
 ## Hardware Requirements
 
-- ESP32 development boards (ESP32, ESP32-S3, or other compatible variants)
-- Sensors (for sensor server nodes)
-- Actuators (for on/off server nodes)
-- USB cables for programming
-- Power supply
+* M5Stamp-C3 (or similar ESP32-C3 boards)
+* DHT22 Sensor (for sensor nodes)
+* IR Transmitter/Receiver (for control nodes)
+* Raspberry Pi 4 (for Home Assistant server)
+* Wi-Fi Network
 
-## Software Dependencies
+## Software Requirements
 
-- ESP-IDF v5.1 (Espressif IoT Development Framework)
-- Arduino as an ESP-IDF component
-- MQTT library
-- BLE Mesh components
+* ESP-IDF (v5.1 recommended)
+* Arduino Core for ESP32 (as ESP-IDF component)
+* MQTT Broker
+* Home Assistant OS (on Raspberry Pi)
 
-## Building and Flashing
+## Build and Flash
 
-### Prerequisites
-- Install ESP-IDF according to official instructions
-- Set up the ESP-IDF environment variables
+1.  **Setup ESP-IDF:** Follow official Espressif instructions.
+2.  **Navigate to Component:** `cd <component_folder>` (e.g., `cd blemesh-mqtt-sensor-server`)
+3.  **Configure:** `idf.py menuconfig` (Set Wi-Fi, MQTT, GPIO pins, etc.)
+4.  **Build:** `idf.py build`
+5.  **Flash:** `idf.py -p PORT flash`
+6.  **Monitor:** `idf.py -p PORT monitor`
 
-### Configuration
-Each component can be configured using the ESP-IDF menuconfig system:
-```
-idf.py menuconfig
-```
+(Replace `PORT` with your device's serial port)
 
-Key configurations include:
-- WiFi credentials
-- MQTT broker details
-- BLE Mesh parameters
+## Authors (Group 7)
 
-### Building and Flashing
-For each component:
-```
-idf.py build
-idf.py -p PORT flash
-```
-Replace PORT with your device's serial port (e.g., /dev/ttyUSB0 on Linux, COM3 on Windows).
-
-### Monitor Output
-```
-idf.py -p PORT monitor
-```
-
-## MQTT Topics
-
-- `/CSC2106/state` - For on/off status updates
-- `/topic/test` - For sensor data (temperature and humidity)
-
-## Troubleshooting
-
-- **Connection Issues**: Ensure WiFi credentials and MQTT broker details are correctly configured
-- **Mesh Provisioning Failures**: Check BLE signal strength between devices
-- **Compilation Errors**: Verify ESP-IDF version compatibility
+* James Patrick Francisco Gonzales
+* Jiang Weimin
+* Chew Liang Zhi
+* Leo Oh Kang Weng
+* Joween Ang
 
 ## License
 
-This project is licensed under MIT License.
+MIT License
