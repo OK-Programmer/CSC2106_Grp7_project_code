@@ -4,6 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @file custom_mqtt_client.c
+ * @brief MQTT client implementation for a BLE mesh application
+ * 
+ * This file implements an MQTT v5.0 client that connects to a broker, 
+ * subscribes to topics, and processes incoming messages. It connects
+ * BLE mesh functionality with MQTT communication.
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -22,13 +31,21 @@
 
 #include "custom_mqtt_client.h"
 
+// Certificate for secure MQTT connection
 extern const uint8_t mqtt_eclipseprojects_io_pem_start[]   asm("_binary_mqtt_eclipseprojects_io_pem_start");
 extern const uint8_t mqtt_eclipseprojects_io_pem_end[]   asm("_binary_mqtt_eclipseprojects_io_pem_end");
 
 static const char *TAG = "mqtt5_example";
 
+// External function to control BLE mesh devices
 extern void example_ble_mesh_send_gen_onoff_set(void);
 
+/**
+ * @brief Log error details if error code is non-zero
+ *
+ * @param message Error message to display
+ * @param error_code Error code value
+ */
 static void log_error_if_nonzero(const char *message, int error_code)
 {
     if (error_code != 0) {
@@ -36,6 +53,7 @@ static void log_error_if_nonzero(const char *message, int error_code)
     }
 }
 
+// User properties attached to MQTT messages for authentication and device identification
 static esp_mqtt5_user_property_item_t user_property_arr[] = {
         {"board", "esp32"},
         {"u", "user"},
@@ -44,6 +62,7 @@ static esp_mqtt5_user_property_item_t user_property_arr[] = {
 
 #define USE_PROPERTY_ARR_SIZE   sizeof(user_property_arr)/sizeof(esp_mqtt5_user_property_item_t)
 
+// Subscribe properties configuration for MQTT v5.0
 static esp_mqtt5_subscribe_property_config_t subscribe_property = {
     .subscribe_id = 25555,
     .no_local_flag = false,
@@ -53,11 +72,17 @@ static esp_mqtt5_subscribe_property_config_t subscribe_property = {
     .share_name = "group1",
 };
 
+// Disconnect properties configuration for MQTT v5.0
 static esp_mqtt5_disconnect_property_config_t disconnect_property = {
     .session_expiry_interval = 60,
     .disconnect_reason = 0,
 };
 
+/**
+ * @brief Print user properties from MQTT messages
+ *
+ * @param user_property Handle to user properties
+ */
 static void print_user_property(mqtt5_user_property_handle_t user_property)
 {
     if (user_property) {
@@ -77,15 +102,15 @@ static void print_user_property(mqtt5_user_property_handle_t user_property)
     }
 }
 
-/*
- * @brief Event handler registered to receive MQTT events
+/**
+ * @brief Event handler for MQTT events
  *
- *  This function is called by the MQTT client event loop.
+ * Processes various MQTT events such as connection, subscription, data received, etc.
  *
- * @param handler_args user data registered to the event.
- * @param base Event base for the handler(always MQTT Base in this example).
- * @param event_id The id for the received event.
- * @param event_data The data for the event, esp_mqtt_event_handle_t.
+ * @param handler_args User data registered to the event
+ * @param base Event base for the handler
+ * @param event_id The ID of the received event
+ * @param event_data The data for the event (esp_mqtt_event_handle_t)
  */
 static void mqtt5_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -99,6 +124,7 @@ static void mqtt5_event_handler(void *handler_args, esp_event_base_t base, int32
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+        // Set user properties for subscription and subscribe to topic
         esp_mqtt5_client_set_user_property(&subscribe_property.user_property, user_property_arr, USE_PROPERTY_ARR_SIZE);
         esp_mqtt5_client_set_subscribe_property(client, &subscribe_property);
         msg_id = esp_mqtt_client_subscribe(client, topic, 0);
@@ -117,6 +143,7 @@ static void mqtt5_event_handler(void *handler_args, esp_event_base_t base, int32
     case MQTT_EVENT_UNSUBSCRIBED:
         ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
         print_user_property(event->property->user_property);
+        // Set disconnect properties and disconnect
         esp_mqtt5_client_set_user_property(&disconnect_property.user_property, user_property_arr, USE_PROPERTY_ARR_SIZE);
         esp_mqtt5_client_set_disconnect_property(client, &disconnect_property);
         esp_mqtt5_client_delete_user_property(disconnect_property.user_property);
@@ -136,6 +163,7 @@ static void mqtt5_event_handler(void *handler_args, esp_event_base_t base, int32
         ESP_LOGI(TAG, "content_type is %.*s", event->property->content_type_len, event->property->content_type);
         ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
         ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
+        // Trigger BLE mesh action when data is received
         example_ble_mesh_send_gen_onoff_set();
         break;
     case MQTT_EVENT_ERROR:
@@ -155,8 +183,14 @@ static void mqtt5_event_handler(void *handler_args, esp_event_base_t base, int32
     }
 }
 
+/**
+ * @brief Initialize and start the MQTT client
+ *
+ * Sets up MQTT v5.0 connection properties and establishes connection to broker
+ */
 static void mqtt5_app_start(void)
 {
+    // Configure MQTT v5.0 specific connection properties
     esp_mqtt5_connection_property_config_t connect_property = {
         .session_expiry_interval = 10,
         .maximum_packet_size = 1024,
@@ -172,6 +206,7 @@ static void mqtt5_app_start(void)
         .correlation_data_len = 6,
     };
 
+    // Configure MQTT client
     esp_mqtt_client_config_t mqtt5_cfg = {
         .broker.address.uri = CONFIG_BROKER_URL,
         .session.protocol_ver = MQTT_PROTOCOL_V_5,
@@ -213,28 +248,32 @@ static void mqtt5_app_start(void)
 
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt5_cfg);
 
-    /* Set connection properties and user properties */
+    // Set connection properties and user properties
     esp_mqtt5_client_set_user_property(&connect_property.user_property, user_property_arr, USE_PROPERTY_ARR_SIZE);
     esp_mqtt5_client_set_user_property(&connect_property.will_user_property, user_property_arr, USE_PROPERTY_ARR_SIZE);
     esp_mqtt5_client_set_connect_property(client, &connect_property);
 
-    /* If you call esp_mqtt5_client_set_user_property to set user properties, DO NOT forget to delete them.
-     * esp_mqtt5_client_set_connect_property will malloc buffer to store the user_property and you can delete it after
-     */
+    // Free user property resources
     esp_mqtt5_client_delete_user_property(connect_property.user_property);
     esp_mqtt5_client_delete_user_property(connect_property.will_user_property);
 
-    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
+    // Register event handler and start client
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt5_event_handler, NULL);
     esp_mqtt_client_start(client);
 }
 
+/**
+ * @brief Main entry point for MQTT client functionality
+ * 
+ * Initializes system components and starts the MQTT client
+ */
 void mqtt_client_main(void)
 {
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
 
+    // Configure logging levels
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set("mqtt_client", ESP_LOG_VERBOSE);
     esp_log_level_set("mqtt_example", ESP_LOG_VERBOSE);
@@ -243,15 +282,14 @@ void mqtt_client_main(void)
     esp_log_level_set("transport", ESP_LOG_VERBOSE);
     esp_log_level_set("outbox", ESP_LOG_VERBOSE);
 
+    // Initialize system components
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
+    // Connect to Wi-Fi/Ethernet
     ESP_ERROR_CHECK(example_connect());
 
+    // Start MQTT client
     mqtt5_app_start();
 }
